@@ -54,7 +54,8 @@ export default function CustomersPage() {
       )}
 
       {data?.items?.length > 0 && (
-        <Card className="overflow-hidden p-0">
+       <Card className="overflow-hidden p-0">
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-surface-2 text-xs uppercase tracking-wide text-text-faint">
               <tr>
@@ -79,6 +80,7 @@ export default function CustomersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
 
