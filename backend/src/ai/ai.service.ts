@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service';
 import { CRM_TOOLS, CrmToolExecutor } from './tools/crm-tools';
+import { getCannedReply } from './canned-responses';
+
+// TEMPORARY SWITCH: set to false once ready to use the real Anthropic API
+// (make sure ANTHROPIC_API_KEY is set in .env / Railway variables first).
+const USE_CANNED_RESPONSES = true;
 
 const SYSTEM_PROMPT = `You are the AITELLION AI Assistant, built by Team StackVolt.
 You help small and medium businesses run their operations — starting with their CRM.
@@ -50,6 +55,10 @@ export class AiService {
   }
 
   async chat(organizationId: string, userId: string, conversationId: string | undefined, userMessage: string) {
+    if (USE_CANNED_RESPONSES) {
+      return this.chatCanned(organizationId, userId, conversationId, userMessage);
+    }
+
     if (!this.config.get<string>('ANTHROPIC_API_KEY')) {
       throw new BadRequestException(
         'ANTHROPIC_API_KEY is not configured on this deployment. Set it in the backend .env to enable the AI Assistant.',
@@ -104,7 +113,6 @@ export class AiService {
         break;
       }
 
-      // Execute each requested tool against real CRM data.
       messages.push({ role: 'assistant', content: response.content });
 
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
@@ -158,6 +166,45 @@ export class AiService {
       conversationId: conversation.id,
       message: finalText,
       toolCalls: executedToolCalls,
+    };
+  }
+
+  /**
+   * Canned-response path — used while USE_CANNED_RESPONSES is true.
+   * Still creates/persists the conversation and messages exactly like the
+   * real path, so the UI and history work identically either way.
+   */
+  private async chatCanned(
+    organizationId: string,
+    userId: string,
+    conversationId: string | undefined,
+    userMessage: string,
+  ) {
+    const conversation = conversationId
+      ? await this.getConversation(organizationId, userId, conversationId)
+      : await this.prisma.aiConversation.create({
+          data: { organizationId, userId, title: userMessage.slice(0, 60) },
+        });
+
+    await this.prisma.aiMessage.create({
+      data: { conversationId: conversation.id, role: 'user', content: userMessage },
+    });
+
+    const replyText = await getCannedReply(this.prisma, organizationId, userMessage);
+
+    await this.prisma.aiMessage.create({
+      data: { conversationId: conversation.id, role: 'assistant', content: replyText },
+    });
+
+    await this.prisma.aiConversation.update({
+      where: { id: conversation.id },
+      data: { updatedAt: new Date() },
+    });
+
+    return {
+      conversationId: conversation.id,
+      message: replyText,
+      toolCalls: [],
     };
   }
 }
