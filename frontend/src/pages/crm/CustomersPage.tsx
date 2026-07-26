@@ -40,7 +40,7 @@ export default function CustomersPage() {
       <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
         <Search size={16} className="text-text-faint" />
         <input
-          className="w-full bg-transparent text-sm text-text placeholder:text-text-faint outline-none"
+          className="min-w-0 flex-1 bg-transparent text-sm text-text placeholder:text-text-faint outline-none"
           placeholder="Search customers by name, company, or email…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

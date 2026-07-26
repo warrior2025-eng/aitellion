@@ -177,7 +177,7 @@ export default function AssistantPage() {
             {isListening ? <MicOff size={16} /> : <Mic size={16} />}
           </button>
           <input
-            className="flex-1 rounded-lg border border-border bg-surface-2 px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none focus:border-volt"
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none focus:border-volt"
             placeholder={isListening ? 'Listening…' : 'Ask about customers, leads, deals, or tell it to take an action…'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
