@@ -100,7 +100,7 @@ export default function AssistantPage() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
+    <div className="flex h-full flex-col">
       <PageHeader title="AI Assistant" description="Ask it to look things up or take action across your CRM." />
 
       <Card className="flex flex-1 flex-col overflow-hidden p-0">
