@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Send, Wrench } from 'lucide-react';
+import { Sparkles, Send, Wrench, Mic, MicOff } from 'lucide-react';
 import { api } from '../../lib/api';
 import { PageHeader, Card } from '../../components/patterns';
 
@@ -16,13 +16,25 @@ const SUGGESTIONS = [
   'How many leads do I have?',
   "What's my pipeline value?",
   'What can you do?',
+  'Help',
+  'Can you summarize a customer?',
 ];
+
+// Voice input uses the browser's built-in Web Speech API (Chrome/Edge only —
+// there's no server component, so nothing to configure).
+const SpeechRecognitionCtor: any =
+  (typeof window !== 'undefined' &&
+    ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) ||
+  null;
 
 export default function AssistantPage() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const queryClient = useQueryClient();
 
   const chatMutation = useMutation({
@@ -33,7 +45,6 @@ export default function AssistantPage() {
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', content: res.data.message, toolCalls: res.data.toolCalls },
       ]);
-      // If the assistant changed CRM data, refresh cached views.
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['deals-board'] });
@@ -51,6 +62,42 @@ export default function AssistantPage() {
     setInput('');
     chatMutation.mutate(text);
   }
+
+  function toggleVoiceInput() {
+    if (!SpeechRecognitionCtor) {
+      setVoiceError('Voice input is not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    setVoiceError(null);
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    };
+    recognition.onerror = () => {
+      setVoiceError('Could not hear you clearly — please try again.');
+      setIsListening(false);
+    };
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  }
+
+  useEffect(() => {
+    return () => recognitionRef.current?.stop();
+  }, []);
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col">
@@ -108,6 +155,8 @@ export default function AssistantPage() {
           <div ref={bottomRef} />
         </div>
 
+        {voiceError && <p className="px-4 pt-2 text-center text-xs text-danger">{voiceError}</p>}
+
         <form
           className="flex items-center gap-2 border-t border-border p-4"
           onSubmit={(e) => {
@@ -115,16 +164,28 @@ export default function AssistantPage() {
             send(input);
           }}
         >
+          <button
+            type="button"
+            onClick={toggleVoiceInput}
+            title={isListening ? 'Stop listening' : 'Speak your message'}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition ${
+              isListening
+                ? 'animate-pulse border-danger bg-danger/10 text-danger'
+                : 'border-border text-text-muted hover:border-volt hover:text-volt-soft'
+            }`}
+          >
+            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
           <input
             className="flex-1 rounded-lg border border-border bg-surface-2 px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none focus:border-volt"
-            placeholder="Ask about customers, leads, deals, or tell it to take an action…"
+            placeholder={isListening ? 'Listening…' : 'Ask about customers, leads, deals, or tell it to take an action…'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
           <button
             type="submit"
             disabled={chatMutation.isPending || !input.trim()}
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-volt text-white transition hover:bg-volt-soft disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-volt text-white transition hover:bg-volt-soft disabled:opacity-40"
           >
             <Send size={16} />
           </button>
