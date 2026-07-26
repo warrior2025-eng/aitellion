@@ -12,10 +12,10 @@ interface ChatMessage {
 }
 
 const SUGGESTIONS = [
-  'Show me all deals in the Proposal stage',
-  'Create a lead named Aarav Singh from Instagram',
-  'Summarize my top customer by deal value',
-  'What did we discuss with customers this week?',
+  'How many customers do I have?',
+  'How many leads do I have?',
+  "What's my pipeline value?",
+  'What can you do?',
 ];
 
 export default function AssistantPage() {

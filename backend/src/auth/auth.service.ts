@@ -14,6 +14,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { SignupDto, LoginDto, ResetPasswordDto, AcceptInviteDto } from './dto/auth.dto';
+import { seedDemoDataForOrg } from '../common/demo-data'; 
 
 const SALT_ROUNDS = 12;
 
@@ -78,6 +79,8 @@ export class AuthService {
       const pipeline = await tx.pipeline.create({
         data: { organizationId: org.id, name: 'Sales Pipeline', isDefault: true },
       });
+
+      await seedDemoDataForOrg(tx, org.id, user.id, pipeline.id);
 
       await tx.auditLog.create({
         data: {
@@ -277,12 +280,13 @@ export class AuthService {
           isEmailVerified: true,
         },
       });
-      await this.prisma.orgMembership.create({
+     await this.prisma.orgMembership.create({
         data: { organizationId: org.id, userId: user.id, role: OrgRole.OWNER },
       });
-      await this.prisma.pipeline.create({
+      const pipeline = await this.prisma.pipeline.create({
         data: { organizationId: org.id, name: 'Sales Pipeline', isDefault: true },
       });
+      await seedDemoDataForOrg(this.prisma, org.id, user.id, pipeline.id);
     } else if (!user.googleId) {
       user = await this.prisma.user.update({ where: { id: user.id }, data: { googleId: payload.sub } });
     }
