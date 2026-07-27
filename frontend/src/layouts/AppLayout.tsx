@@ -93,7 +93,7 @@ export function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink">
       {/* Desktop sidebar — always visible from md breakpoint up */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface/50 px-4 py-6 md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface/50 px-4 py-6 md:flex">
         {sidebarContent}
       </aside>
 
@@ -104,7 +104,7 @@ export function AppLayout() {
             className="fixed inset-0 bg-black/60"
             onClick={() => setMobileNavOpen(false)}
           />
-          <aside className="relative flex w-72 max-w-[80vw] flex-col bg-surface px-4 py-6 shadow-2xl">
+         <aside className="relative flex w-72 max-w-[80vw] flex-col overflow-y-auto bg-surface px-4 py-6 shadow-2xl">
             {sidebarContent}
           </aside>
         </div>
