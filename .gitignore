@@ -6,3 +6,4 @@ build/
 *.log
 .DS_Store
 .npm-global/
+vercel.recovery-codes.txt
