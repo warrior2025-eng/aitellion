@@ -59,6 +59,12 @@ enum ActivityType {
   STAGE_CHANGE
   AI_ACTION
 }
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
 
 enum EmployeeStatus {
   ACTIVE
