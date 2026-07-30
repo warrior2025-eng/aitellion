@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -10,16 +10,22 @@ import {
   LogOut,
   Menu,
   X,
-} from 'lucide-react';
-import { Logo } from '../components/Logo';
-import { useAuth } from '../context/AuthContext';
+  IdCard,
+  CalendarCheck,
+  CalendarClock,
+} from "lucide-react";
+import { Logo } from "../components/Logo";
+import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
-  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/customers', label: 'Customers', icon: Users },
-  { to: '/app/leads', label: 'Leads', icon: Target },
-  { to: '/app/deals', label: 'Deals', icon: Handshake },
-  { to: '/app/assistant', label: 'AI Assistant', icon: Sparkles },
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/app/customers", label: "Customers", icon: Users },
+  { to: "/app/leads", label: "Leads", icon: Target },
+  { to: "/app/deals", label: "Deals", icon: Handshake },
+  { to: "/app/employees", label: "Employees", icon: IdCard },
+  { to: "/app/attendance", label: "Attendance", icon: CalendarCheck },
+  { to: "/app/leaves", label: "Leaves", icon: CalendarClock },
+  { to: "/app/assistant", label: "AI Assistant", icon: Sparkles },
 ];
 
 export function AppLayout() {
@@ -29,7 +35,7 @@ export function AppLayout() {
 
   async function handleLogout() {
     await logout();
-    navigate('/login');
+    navigate("/login");
   }
 
   const sidebarContent = (
@@ -55,8 +61,8 @@ export function AppLayout() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                 isActive
-                  ? 'bg-volt/15 text-volt-soft relative before:absolute before:-left-4 before:top-1/2 before:h-5 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-spark'
-                  : 'text-text-muted hover:bg-surface-2 hover:text-text'
+                  ? "bg-volt/15 text-volt-soft relative before:absolute before:-left-4 before:top-1/2 before:h-5 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-spark"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text"
               }`
             }
           >
@@ -72,7 +78,9 @@ export function AppLayout() {
           onClick={() => setMobileNavOpen(false)}
           className={({ isActive }) =>
             `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-              isActive ? 'bg-volt/15 text-volt-soft' : 'text-text-muted hover:bg-surface-2 hover:text-text'
+              isActive
+                ? "bg-volt/15 text-volt-soft"
+                : "text-text-muted hover:bg-surface-2 hover:text-text"
             }`
           }
         >
@@ -104,7 +112,7 @@ export function AppLayout() {
             className="fixed inset-0 bg-black/60"
             onClick={() => setMobileNavOpen(false)}
           />
-         <aside className="relative flex w-72 max-w-[80vw] flex-col overflow-y-auto bg-surface px-4 py-6 shadow-2xl">
+          <aside className="relative flex w-72 max-w-[80vw] flex-col overflow-y-auto bg-surface px-4 py-6 shadow-2xl">
             {sidebarContent}
           </aside>
         </div>
@@ -126,7 +134,7 @@ export function AppLayout() {
               <p className="text-xs text-text-faint font-mono">{user?.role}</p>
             </div>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-3 font-display text-sm font-semibold text-volt-soft">
-              {user?.fullName?.[0]?.toUpperCase() ?? '?'}
+              {user?.fullName?.[0]?.toUpperCase() ?? "?"}
             </div>
           </div>
         </header>

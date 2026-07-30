@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { CrmModule } from './crm/crm.module';
+import { HrModule } from './hr/hr.module';
 import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -21,6 +22,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     UsersModule,
     OrganizationsModule,
     CrmModule,
+    HrModule,
     AiModule,
   ],
   providers: [

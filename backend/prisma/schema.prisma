@@ -60,12 +60,32 @@ enum ActivityType {
   AI_ACTION
 }
 
-enum TaskStatus {
-  OPEN
-  IN_PROGRESS
-  DONE
-  CANCELLED
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
 }
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  WORK_FROM_HOME
+}
+
+enum LeaveType {
+  SICK
+  CASUAL
+  EARNED
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 
 // ---------------------------------------------------------------------------
 // TENANCY / IDENTITY
@@ -91,9 +111,13 @@ model Organization {
   activities  Activity[]
   notes       Note[]
   tasks       Task[]
-  auditLogs   AuditLog[]
+auditLogs   AuditLog[]
   notifications Notification[]
   aiConversations AiConversation[]
+  departments Department[]
+  employees   Employee[]
+  attendanceRecords Attendance[]
+  leaveRequests LeaveRequest[]
 
   @@map("organizations")
 }
@@ -125,6 +149,7 @@ model User {
   auditLogs         AuditLog[]
   notifications     Notification[]
   aiConversations   AiConversation[]
+  employeeProfiles  Employee[]
 
   @@map("users")
 }
@@ -415,4 +440,88 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+// ---------------------------------------------------------------------------
+// HR
+// ---------------------------------------------------------------------------
+
+model Department {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model Employee {
+  id             String         @id @default(uuid())
+  organizationId String
+  userId         String?
+  fullName       String
+  email          String?
+  phone          String?
+  designation    String?
+  departmentId   String?
+  dateOfJoining  DateTime?
+  status         EmployeeStatus @default(ACTIVE)
+  salaryCents    Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?           @relation(fields: [userId], references: [id])
+  department   Department?     @relation(fields: [departmentId], references: [id])
+  attendance   Attendance[]
+  leaveRequests LeaveRequest[]
+
+  @@index([organizationId])
+  @@index([departmentId])
+  @@map("employees")
+}
+
+model Attendance {
+  id             String            @id @default(uuid())
+  organizationId String
+  employeeId     String
+  date           DateTime          @db.Date
+  status         AttendanceStatus  @default(PRESENT)
+  checkIn        DateTime?
+  checkOut       DateTime?
+  notes          String?
+  createdAt      DateTime          @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId, date])
+  @@unique([employeeId, date])
+  @@map("attendance_records")
+}
+
+model LeaveRequest {
+  id             String      @id @default(uuid())
+  organizationId String
+  employeeId     String
+  type           LeaveType
+  startDate      DateTime    @db.Date
+  endDate        DateTime    @db.Date
+  reason         String?
+  status         LeaveStatus @default(PENDING)
+  approvedById   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@map("leave_requests")
 }
