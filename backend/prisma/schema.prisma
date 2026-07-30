@@ -59,6 +59,7 @@ enum ActivityType {
   STAGE_CHANGE
   AI_ACTION
 }
+
 enum TaskStatus {
   OPEN
   IN_PROGRESS
@@ -126,6 +127,10 @@ auditLogs   AuditLog[]
   leaveRequests LeaveRequest[]
 
   @@map("organizations")
+  departments Department[]
+  employees   Employee[]
+  attendanceRecords Attendance[]
+  leaveRequests LeaveRequest[]
 }
 
 model User {
@@ -158,6 +163,7 @@ model User {
   employeeProfiles  Employee[]
 
   @@map("users")
+  employeeProfiles  Employee[]
 }
 
 model OrgMembership {
