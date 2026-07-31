@@ -93,6 +93,21 @@ enum LeaveStatus {
   REJECTED
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CARD
+  OTHER
+}
 
 // ---------------------------------------------------------------------------
 // TENANCY / IDENTITY
@@ -121,12 +136,15 @@ model Organization {
   auditLogs   AuditLog[]
   notifications Notification[]
   aiConversations AiConversation[]
-
-  @@map("organizations")
   departments Department[]
   employees   Employee[]
   attendanceRecords Attendance[]
   leaveRequests LeaveRequest[]
+  invoices    Invoice[]
+  expenses    Expense[]
+  payments    Payment[]
+
+  @@map("organizations")
 }
 
 model User {
@@ -229,11 +247,13 @@ model Customer {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   deals        Deal[]
   activities   Activity[]
   notes        Note[]
   tasks        Task[]
+  invoices     Invoice[]
+  payments     Payment[]
 
   @@index([organizationId])
   @@map("customers")
@@ -531,4 +551,73 @@ model LeaveRequest {
   @@index([organizationId])
   @@index([employeeId])
   @@map("leave_requests")
+}
+
+// ---------------------------------------------------------------------------
+// FINANCE
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id             String        @id @default(uuid())
+  organizationId String
+  customerId     String?
+  invoiceNumber  String
+  issueDate      DateTime      @db.Date
+  dueDate        DateTime      @db.Date
+  status         InvoiceStatus @default(DRAFT)
+  items          Json
+  subtotalCents  Int
+  taxCents       Int           @default(0)
+  totalCents     Int
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  payments     Payment[]
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@unique([organizationId, invoiceNumber])
+  @@map("invoices")
+}
+
+model Expense {
+  id             String    @id @default(uuid())
+  organizationId String
+  category       String
+  description    String?
+  amountCents    Int
+  date           DateTime  @db.Date
+  vendor         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("expenses")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  organizationId String
+  invoiceId      String?
+  customerId     String?
+  amountCents    Int
+  method         PaymentMethod @default(OTHER)
+  paidAt         DateTime      @default(now())
+  notes          String?
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@map("payments")
 }

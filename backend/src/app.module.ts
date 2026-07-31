@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { CrmModule } from './crm/crm.module';
 import { HrModule } from './hr/hr.module';
+import { FinanceModule } from './finance/finance.module';
 import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -23,7 +24,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     OrganizationsModule,
     CrmModule,
     HrModule,
-    AiModule,
+    FinanceModule,
+    AiModule, 
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true }) },

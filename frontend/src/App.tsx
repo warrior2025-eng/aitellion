@@ -13,8 +13,11 @@ import LeadsPage from "./pages/crm/LeadsPage";
 import DealsPage from "./pages/crm/DealsPage";
 import EmployeesPage from "./pages/hr/EmployeesPage";
 import AttendancePage from "./pages/hr/AttendancePage";
-import LeavesPage from "./pages/hr/LeavesPage";
-import AssistantPage from "./pages/dashboard/AssistantPage";
+import LeavesPage from './pages/hr/LeavesPage';
+import InvoicesPage from './pages/finance/InvoicesPage';
+import ExpensesPage from './pages/finance/ExpensesPage';
+import PaymentsPage from './pages/finance/PaymentsPage';
+import AssistantPage from './pages/dashboard/AssistantPage';
 import SettingsPage from "./pages/dashboard/SettingsPage";
 
 export default function App() {
@@ -43,6 +46,9 @@ export default function App() {
           <Route path="employees" element={<EmployeesPage />} />
           <Route path="attendance" element={<AttendancePage />} />
           <Route path="leaves" element={<LeavesPage />} />
+          <Route path="invoices" element={<InvoicesPage />} />
+          <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="payments" element={<PaymentsPage />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

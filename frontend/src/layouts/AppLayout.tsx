@@ -13,19 +13,25 @@ import {
   IdCard,
   CalendarCheck,
   CalendarClock,
-} from "lucide-react";
-import { Logo } from "../components/Logo";
-import { useAuth } from "../context/AuthContext";
+  Receipt,
+  Wallet,
+  BadgeIndianRupee,
+} from 'lucide-react';
+import { Logo } from '../components/Logo';
+import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
-  { to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/app/customers", label: "Customers", icon: Users },
-  { to: "/app/leads", label: "Leads", icon: Target },
-  { to: "/app/deals", label: "Deals", icon: Handshake },
-  { to: "/app/employees", label: "Employees", icon: IdCard },
-  { to: "/app/attendance", label: "Attendance", icon: CalendarCheck },
-  { to: "/app/leaves", label: "Leaves", icon: CalendarClock },
-  { to: "/app/assistant", label: "AI Assistant", icon: Sparkles },
+  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/app/customers', label: 'Customers', icon: Users },
+  { to: '/app/leads', label: 'Leads', icon: Target },
+  { to: '/app/deals', label: 'Deals', icon: Handshake },
+  { to: '/app/employees', label: 'Employees', icon: IdCard },
+  { to: '/app/attendance', label: 'Attendance', icon: CalendarCheck },
+  { to: '/app/leaves', label: 'Leaves', icon: CalendarClock },
+  { to: '/app/invoices', label: 'Invoices', icon: Receipt },
+  { to: '/app/expenses', label: 'Expenses', icon: BadgeIndianRupee },
+  { to: '/app/payments', label: 'Payments', icon: Wallet },
+  { to: '/app/assistant', label: 'AI Assistant', icon: Sparkles },
 ];
 
 export function AppLayout() {
