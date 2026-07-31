@@ -118,13 +118,9 @@ model Organization {
   activities  Activity[]
   notes       Note[]
   tasks       Task[]
-auditLogs   AuditLog[]
+  auditLogs   AuditLog[]
   notifications Notification[]
   aiConversations AiConversation[]
-  departments Department[]
-  employees   Employee[]
-  attendanceRecords Attendance[]
-  leaveRequests LeaveRequest[]
 
   @@map("organizations")
   departments Department[]
@@ -160,7 +156,6 @@ model User {
   auditLogs         AuditLog[]
   notifications     Notification[]
   aiConversations   AiConversation[]
-  employeeProfiles  Employee[]
 
   @@map("users")
   employeeProfiles  Employee[]
