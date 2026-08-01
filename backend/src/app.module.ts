@@ -10,6 +10,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { CrmModule } from './crm/crm.module';
 import { HrModule } from './hr/hr.module';
 import { FinanceModule } from './finance/finance.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -25,6 +26,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     CrmModule,
     HrModule,
     FinanceModule,
+    InventoryModule,
     AiModule, 
   ],
   providers: [
