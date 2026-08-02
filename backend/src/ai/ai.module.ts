@@ -8,8 +8,10 @@ import { DealsService } from '../crm/deals/deals.service';
 import { TasksService } from '../crm/tasks/tasks.service';
 import { NotesService } from '../crm/notes/notes.service';
 import { ActivitiesService } from '../crm/activities/activities.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [AiController],
   providers: [
     AiService,
