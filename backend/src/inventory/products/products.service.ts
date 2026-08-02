@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { CreateProductDto, AdjustStockDto } from './dto/product.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async list(organizationId: string, opts: { search?: string; lowStockOnly?: boolean } = {}) {
     const where: any = { organizationId, deletedAt: null };
@@ -67,6 +71,17 @@ export class ProductsService {
         data: { organizationId, productId: id, type: dto.type, quantity: dto.quantity, reason: dto.reason },
       }),
     ]);
+
+    const wasLow = product.stockQuantity <= product.lowStockThreshold;
+    const isLow = newQuantity <= product.lowStockThreshold;
+    if (isLow && !wasLow) {
+      await this.notifications.notifyRoles(
+        organizationId,
+        ['OWNER', 'ADMIN', 'MANAGER'],
+        'Low stock alert',
+        `${product.name} (SKU ${product.sku}) is down to ${newQuantity} units.`,
+      );
+    }
 
     return { product: await this.get(organizationId, id), movement };
   }

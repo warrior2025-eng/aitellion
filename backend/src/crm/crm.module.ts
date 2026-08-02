@@ -11,8 +11,10 @@ import { TasksController } from './tasks/tasks.controller';
 import { TasksService } from './tasks/tasks.service';
 import { ActivitiesController } from './activities/activities.controller';
 import { ActivitiesService } from './activities/activities.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [
     CustomersController,
     LeadsController,

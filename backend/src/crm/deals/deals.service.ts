@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { CreateDealDto, UpdateDealDto } from './dto/deal.dto';
 
 @Injectable()
 export class DealsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async list(organizationId: string, opts: { stage?: string; pipelineId?: string; skip?: number; take?: number } = {}) {
     const { stage, pipelineId, skip = 0, take = 50 } = opts;
@@ -106,10 +110,17 @@ export class DealsService {
         `Deal stage changed: ${existing.stage} → ${dto.stage}`,
         'STAGE_CHANGE',
       );
+      if (dto.stage === 'WON' && deal.ownerId) {
+        await this.notifications.notifyUser(
+          organizationId,
+          deal.ownerId,
+          '🎉 Deal won!',
+          `"${deal.title}" was marked as Won.`,
+        );
+      }
     }
     return deal;
   }
-
   async remove(organizationId: string, actorId: string, id: string) {
     await this.get(organizationId, id);
     await this.prisma.deal.update({ where: { id }, data: { deletedAt: new Date() } });

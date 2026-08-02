@@ -20,6 +20,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { NotificationBell } from '../components/NotificationBell';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
@@ -139,6 +140,7 @@ export function AppLayout() {
           </button>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-text">{user?.fullName}</p>
               <p className="text-xs text-text-faint font-mono">{user?.role}</p>

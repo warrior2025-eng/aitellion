@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { CreateLeadDto, UpdateLeadDto } from './dto/lead.dto';
 
 @Injectable()
 export class LeadsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async list(organizationId: string, opts: { status?: string; skip?: number; take?: number } = {}) {
     const { status, skip = 0, take = 25 } = opts;
@@ -30,6 +34,14 @@ export class LeadsService {
   async create(organizationId: string, actorId: string, dto: CreateLeadDto) {
     const lead = await this.prisma.lead.create({ data: { organizationId, ...dto } });
     await this.logActivity(organizationId, actorId, lead.id, `Lead "${lead.name}" was created`);
+    if (lead.ownerId) {
+      await this.notifications.notifyUser(
+        organizationId,
+        lead.ownerId,
+        'New lead assigned to you',
+        `${lead.name}${lead.company ? ` (${lead.company})` : ''} was just added.`,
+      );
+    }
     return lead;
   }
 
