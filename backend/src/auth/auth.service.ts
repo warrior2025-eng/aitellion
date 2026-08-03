@@ -48,7 +48,7 @@ export class AuthService {
   }
 
   // ---------------------------------------------------------------------
-  // Signup — creates a brand-new organization with the caller as OWNER
+  //Signup — creates a brand-new organization with the caller as OWNER
   // ---------------------------------------------------------------------
   async signup(dto: SignupDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
