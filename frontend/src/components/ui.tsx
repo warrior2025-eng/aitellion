@@ -1,23 +1,43 @@
-import { forwardRef, type InputHTMLAttributes } from 'react';
+import { forwardRef, useState, type InputHTMLAttributes } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
 }
 
-export const Field = forwardRef<HTMLInputElement, FieldProps>(({ label, error, id, ...rest }, ref) => {
+export const Field = forwardRef<HTMLInputElement, FieldProps>(({ label, error, id, type, ...rest }, ref) => {
   const inputId = id ?? label.toLowerCase().replace(/\s+/g, '-');
+  const isPassword = type === 'password';
+  const [visible, setVisible] = useState(false);
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={inputId} className="text-sm font-medium text-text-muted">
         {label}
       </label>
-      <input
-        ref={ref}
-        id={inputId}
-        className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none transition focus:border-volt focus:ring-2 focus:ring-volt/20"
-        {...rest}
-      />
+      <div className="relative">
+        <input
+          ref={ref}
+          id={inputId}
+          type={isPassword ? (visible ? 'text' : 'password') : type}
+          className={`w-full rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-text placeholder:text-text-faint outline-none transition focus:border-volt focus:ring-2 focus:ring-volt/20 ${
+            isPassword ? 'pr-10' : ''
+          }`}
+          {...rest}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            tabIndex={-1}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-faint hover:text-text-muted"
+            aria-label={visible ? 'Hide password' : 'Show password'}
+          >
+            {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        )}
+      </div>
       {error && <span className="text-xs text-danger">{error}</span>}
     </div>
   );
