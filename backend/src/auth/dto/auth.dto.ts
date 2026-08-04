@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsArray, ArrayMinSize } from 'class-validator';
 
 export class SignupDto {
   @IsString()
@@ -20,6 +20,11 @@ export class SignupDto {
   @MinLength(2)
   @MaxLength(120)
   organizationName: string;
+
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Select at least one department' })
+  @IsString({ each: true })
+  designations: string[];
 }
 
 export class LoginDto {

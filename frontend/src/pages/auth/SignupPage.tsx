@@ -1,27 +1,50 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { AuthLayout } from '../../layouts/AuthLayout';
 import { Field, Button } from '../../components/ui';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SignupPage() {
   const { signup } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ fullName: '', organizationName: '', email: '', password: '' });
+  const [designations, setDesignations] = useState<string[]>([]);
+  const [availableDesignations, setAvailableDesignations] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api
+      .get('/auth/designations')
+      .then((res) => setAvailableDesignations(res.data.designations))
+      .catch(() => {
+        // fallback list in case /auth/designations is unreachable
+        setAvailableDesignations(['Sales & CRM', 'Human Resources', 'Finance & Accounts', 'Inventory & Operations']);
+      });
+  }, []);
 
   function update(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
   }
 
+  function toggleDesignation(designation: string) {
+    setDesignations((prev) =>
+      prev.includes(designation) ? prev.filter((d) => d !== designation) : [...prev, designation],
+    );
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (designations.length === 0) {
+      setError('Select at least one department your company will use AITELLION for.');
+      return;
+    }
     setLoading(true);
     try {
-      await signup(form);
+      await signup({ ...form, designations });
       navigate('/app');
     } catch (err) {
       const message = isAxiosError(err) ? err.response?.data?.message : null;
@@ -38,6 +61,31 @@ export default function SignupPage() {
         <Field label="Company / organization name" required value={form.organizationName} onChange={update('organizationName')} placeholder="Acme Retail Co." />
         <Field label="Work email" type="email" required value={form.email} onChange={update('email')} placeholder="you@company.com" />
         <Field label="Password" type="password" required value={form.password} onChange={update('password')} placeholder="At least 8 characters" />
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-text-muted">Which departments will use AITELLION?</label>
+          <p className="text-xs text-text-faint">We'll only show the sidebar modules your team actually needs.</p>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {availableDesignations.map((designation) => {
+              const selected = designations.includes(designation);
+              return (
+                <button
+                  key={designation}
+                  type="button"
+                  onClick={() => toggleDesignation(designation)}
+                  className={`rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition ${
+                    selected
+                      ? 'border-volt bg-volt/15 text-volt-soft'
+                      : 'border-border text-text-muted hover:bg-surface-2 hover:text-text'
+                  }`}
+                >
+                  {designation}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {error && <p className="text-sm text-danger">{error}</p>}
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? 'Creating workspace…' : 'Create workspace'}

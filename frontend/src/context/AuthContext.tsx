@@ -14,7 +14,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (payload: { fullName: string; email: string; password: string; organizationName: string }) => Promise<void>;
+  signup: (payload: { fullName: string; email: string; password: string; organizationName: string; designations: string[] }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshUser();
   }
 
-  async function signup(payload: { fullName: string; email: string; password: string; organizationName: string }) {
+  async function signup(payload: { fullName: string; email: string; password: string; organizationName: string; designations: string[] }) {
     const res = await api.post('/auth/signup', payload);
     setTokens(res.data.accessToken, res.data.refreshToken);
     await refreshUser();

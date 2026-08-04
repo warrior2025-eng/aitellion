@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   Users,
@@ -22,27 +23,47 @@ import {
 import { Logo } from '../components/Logo';
 import { NotificationBell } from '../components/NotificationBell';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 
-const NAV_ITEMS = [
-  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/app/customers', label: 'Customers', icon: Users },
-  { to: '/app/leads', label: 'Leads', icon: Target },
-  { to: '/app/deals', label: 'Deals', icon: Handshake },
-  { to: '/app/employees', label: 'Employees', icon: IdCard },
-  { to: '/app/attendance', label: 'Attendance', icon: CalendarCheck },
-  { to: '/app/leaves', label: 'Leaves', icon: CalendarClock },
-  { to: '/app/invoices', label: 'Invoices', icon: Receipt },
-  { to: '/app/expenses', label: 'Expenses', icon: BadgeIndianRupee },
-  { to: '/app/payments', label: 'Payments', icon: Wallet },
-  { to: '/app/products', label: 'Products', icon: Package },
-  { to: '/app/suppliers', label: 'Suppliers', icon: Truck },
-  { to: '/app/assistant', label: 'AI Assistant', icon: Sparkles },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+  module: 'CRM' | 'HR' | 'FINANCE' | 'INVENTORY' | null;
+}
+
+// module: null -> always visible (Dashboard, AI Assistant)
+const NAV_ITEMS: NavItem[] = [
+  { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true, module: null },
+  { to: '/app/customers', label: 'Customers', icon: Users, module: 'CRM' },
+  { to: '/app/leads', label: 'Leads', icon: Target, module: 'CRM' },
+  { to: '/app/deals', label: 'Deals', icon: Handshake, module: 'CRM' },
+  { to: '/app/employees', label: 'Employees', icon: IdCard, module: 'HR' },
+  { to: '/app/attendance', label: 'Attendance', icon: CalendarCheck, module: 'HR' },
+  { to: '/app/leaves', label: 'Leaves', icon: CalendarClock, module: 'HR' },
+  { to: '/app/invoices', label: 'Invoices', icon: Receipt, module: 'FINANCE' },
+  { to: '/app/expenses', label: 'Expenses', icon: BadgeIndianRupee, module: 'FINANCE' },
+  { to: '/app/payments', label: 'Payments', icon: Wallet, module: 'FINANCE' },
+  { to: '/app/products', label: 'Products', icon: Package, module: 'INVENTORY' },
+  { to: '/app/suppliers', label: 'Suppliers', icon: Truck, module: 'INVENTORY' },
+  { to: '/app/assistant', label: 'AI Assistant', icon: Sparkles, module: null },
 ];
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const { data: org } = useQuery({
+    queryKey: ['organization'],
+    queryFn: async () => (await api.get('/organizations/current')).data,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // avoid flashing an empty sidebar before /organizations/current resolves
+  const enabledModules: string[] = org?.enabledModules ?? NAV_ITEMS.map((i) => i.module).filter(Boolean) as string[];
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.module === null || enabledModules.includes(item.module));
 
   async function handleLogout() {
     await logout();
@@ -63,7 +84,7 @@ export function AppLayout() {
       </div>
 
       <nav className="mt-8 flex flex-1 flex-col gap-1">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        {visibleNavItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -111,12 +132,10 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-ink">
-      {/* Desktop sidebar — always visible from md breakpoint up */}
       <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface/50 px-4 py-6 md:flex">
         {sidebarContent}
       </aside>
 
-      {/* Mobile sidebar — slide-in drawer + backdrop, only rendered when open */}
       {mobileNavOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div

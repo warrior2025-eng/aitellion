@@ -115,6 +115,14 @@ enum StockMovementType {
   ADJUSTMENT
 }
 
+// sidebar modules gated by org designation at signup
+enum WorkspaceModule {
+  CRM
+  HR
+  FINANCE
+  INVENTORY
+}
+
 // ---------------------------------------------------------------------------
 // TENANCY / IDENTITY
 // ---------------------------------------------------------------------------
@@ -126,6 +134,7 @@ model Organization {
   logoUrl   String?
   timezone  String   @default("UTC")
   currency  String   @default("USD")
+  enabledModules WorkspaceModule[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?

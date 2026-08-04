@@ -14,7 +14,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { SignupDto, LoginDto, ResetPasswordDto, AcceptInviteDto } from './dto/auth.dto';
-import { seedDemoDataForOrg } from '../common/demo-data'; 
+import { seedDemoDataForOrg } from '../common/demo-data';
+import { resolveModulesForDesignations, ALL_MODULES } from '../common/workspace-modules';
 
 const SALT_ROUNDS = 12;
 
@@ -56,10 +57,15 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const emailVerifyToken = crypto.randomBytes(32).toString('hex');
+    const enabledModules = resolveModulesForDesignations(dto.designations);
 
     const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const org = await tx.organization.create({
-        data: { name: dto.organizationName, slug: slugify(dto.organizationName) },
+        data: {
+          name: dto.organizationName,
+          slug: slugify(dto.organizationName),
+          enabledModules,
+        },
       });
 
       const user = await tx.user.create({
@@ -131,8 +137,6 @@ export class AuthService {
       throw new UnauthorizedException('This account is not linked to any organization');
     }
 
-    // Default to the first organization; the frontend can call
-    // POST /auth/switch-org to change the active tenant afterwards.
     const primary = memberships[0];
     const tokens = await this.issueTokens(user.id, user.email, primary.organizationId, primary.role, meta);
 
@@ -168,7 +172,6 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token is invalid or expired');
     }
 
-    // rotate: revoke old, issue new
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
@@ -212,7 +215,6 @@ export class AuthService {
   // ---------------------------------------------------------------------
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    // Always return success to avoid leaking which emails are registered.
     if (!user) return { success: true };
 
     const rawToken = crypto.randomBytes(32).toString('hex');
@@ -241,7 +243,6 @@ export class AuthService {
       data: { passwordHash, passwordResetToken: null, passwordResetExpiresAt: null },
     });
 
-    // Invalidate all existing sessions on password change.
     await this.prisma.refreshToken.updateMany({
       where: { userId: user.id, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -267,9 +268,12 @@ export class AuthService {
     let user = await this.prisma.user.findUnique({ where: { email: payload.email } });
 
     if (!user) {
-      // First time signing in with Google — create a personal organization.
       const org = await this.prisma.organization.create({
-        data: { name: `${payload.given_name ?? payload.email}'s Workspace`, slug: slugify(payload.email) },
+        data: {
+          name: `${payload.given_name ?? payload.email}'s Workspace`,
+          slug: slugify(payload.email),
+          enabledModules: ALL_MODULES,
+        },
       });
       user = await this.prisma.user.create({
         data: {
@@ -314,7 +318,7 @@ export class AuthService {
           email: invite.email,
           fullName: dto.fullName,
           passwordHash,
-          isEmailVerified: true, // invite flow implicitly verifies the email
+          isEmailVerified: true,
         },
       });
     }

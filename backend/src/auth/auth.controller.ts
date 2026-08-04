@@ -1,9 +1,10 @@
-import { Body, Controller, Post, Req, HttpCode, HttpStatus, Param } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, HttpCode, HttpStatus, Param } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, AuthenticatedPrincipal } from '../common/decorators/current-user.decorator';
+import { AVAILABLE_DESIGNATIONS } from '../common/workspace-modules';
 import {
   SignupDto,
   LoginDto,
@@ -18,6 +19,12 @@ import {
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  @Public()
+  @Get('designations')
+  getDesignations() {
+    return { designations: AVAILABLE_DESIGNATIONS };
+  }
 
   @Public()
   @Post('signup')
