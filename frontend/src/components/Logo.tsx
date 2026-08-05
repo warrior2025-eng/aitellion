@@ -6,13 +6,13 @@ interface LogoProps {
 const textSizeMap = {
   sm: 'text-lg',
   md: 'text-2xl',
-  lg: 'text-4xl',
+  lg: 'text-3xl',
 };
 
 const iconSizeMap = {
-  sm: 'h-5 w-5',
-  md: 'h-7 w-7',
-  lg: 'h-10 w-10',
+  sm: 'h-7 w-7',
+  md: 'h-10 w-10',
+  lg: 'h-14 w-14',
 };
 
 export function Logo({ size = 'md', showPulse = true }: LogoProps) {
@@ -30,7 +30,8 @@ export function Logo({ size = 'md', showPulse = true }: LogoProps) {
 export function BrandFooter() {
   return (
     <p className="text-xs text-text-faint font-mono">
-      Built by <span className="text-text-muted">Team StackVolt</span>
+      Built with <span aria-hidden="true">❤️</span> by <span className="text-text-muted">Team StackVolt</span>
+      <span aria-hidden="true">⚡</span>
     </p>
   );
 }

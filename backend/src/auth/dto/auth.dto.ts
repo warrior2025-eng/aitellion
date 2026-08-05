@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches, IsArray, ArrayMinSize } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsArray, ArrayMinSize, Length } from 'class-validator';
 
 export class SignupDto {
   @IsString()
@@ -21,6 +21,13 @@ export class SignupDto {
   @MaxLength(120)
   organizationName: string;
 
+  // ISO 3166-1 alpha-2 code, e.g. "IN", "US" - lets us see usage by country
+  @IsString()
+  @Length(2, 2)
+  country: string;
+
+  // Which departments/designations this company uses AITELLION for.
+  // Drives which sidebar modules get enabled for the new organization.
   @IsArray()
   @ArrayMinSize(1, { message: 'Select at least one department' })
   @IsString({ each: true })

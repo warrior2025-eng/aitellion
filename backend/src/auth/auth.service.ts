@@ -64,6 +64,7 @@ export class AuthService {
         data: {
           name: dto.organizationName,
           slug: slugify(dto.organizationName),
+          country: dto.country,
           enabledModules,
         },
       });

@@ -44,6 +44,33 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(({ label, error, i
 });
 Field.displayName = 'Field';
 
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  label: string;
+  error?: string;
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(({ label, error, id, children, ...rest }, ref) => {
+  const selectId = id ?? label.toLowerCase().replace(/\s+/g, '-');
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={selectId} className="text-sm font-medium text-text-muted">
+        {label}
+      </label>
+      <select
+        ref={ref}
+        id={selectId}
+        className="w-full rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-text outline-none transition focus:border-volt focus:ring-2 focus:ring-volt/20"
+        {...rest}
+      >
+        {children}
+      </select>
+      {error && <span className="text-xs text-danger">{error}</span>}
+    </div>
+  );
+});
+Select.displayName = 'Select';
+
 export function Button({
   children,
   variant = 'primary',

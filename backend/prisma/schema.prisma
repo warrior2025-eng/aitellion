@@ -134,6 +134,7 @@ model Organization {
   logoUrl   String?
   timezone  String   @default("UTC")
   currency  String   @default("USD")
+  country   String?
   enabledModules WorkspaceModule[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
