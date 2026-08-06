@@ -1,18 +1,21 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI, Part } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { CRM_TOOLS, CrmToolExecutor } from './tools/crm-tools';
-import { toGeminiFunctionDeclarations } from './gemini-tools';
+import { toOpenAiTools } from './openai-tools';
 import { getCannedReply } from './canned-responses';
 
-// TEMPORARY SWITCH: flip to true if GEMINI_API_KEY isn't configured yet and
+// TEMPORARY SWITCH: flip to true if GROQ_API_KEY isn't configured yet and
 // you still want the assistant to respond with basic data-driven answers.
 const USE_CANNED_RESPONSES = false;
 
-// Gemini 2.0 Flash - free tier on Google AI Studio, supports function
-// calling, good latency/quality tradeoff for a CRM assistant.
-const MODEL_NAME = 'gemini-2.5-flash-lite';
+// Groq hosts open models (Llama 3.3) behind an OpenAI-compatible API with a
+// genuinely usable free tier (no billing setup, no per-account quota
+// weirdness like some other providers) - good fit for a CRM assistant that
+// needs reliable function/tool calling.
+const MODEL_NAME = 'llama-3.3-70b-versatile';
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 
 const SYSTEM_PROMPT = `You are the AITELLION AI Assistant, built by Team StackVolt.
 You help small and medium businesses run their operations — starting with their CRM.
@@ -32,16 +35,16 @@ const MAX_TOOL_ITERATIONS = 6;
 
 @Injectable()
 export class AiService {
-  private client: GoogleGenerativeAI | null = null;
+  private client: OpenAI | null = null;
 
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
     private toolExecutor: CrmToolExecutor,
   ) {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY');
+    const apiKey = this.config.get<string>('GROQ_API_KEY');
     if (apiKey) {
-      this.client = new GoogleGenerativeAI(apiKey);
+      this.client = new OpenAI({ apiKey, baseURL: GROQ_BASE_URL });
     }
   }
 
@@ -68,7 +71,7 @@ export class AiService {
 
     if (!this.client) {
       throw new BadRequestException(
-        'GEMINI_API_KEY is not configured on this deployment. Set it in the backend .env to enable the AI Assistant.',
+        'GROQ_API_KEY is not configured on this deployment. Set it in the backend .env to enable the AI Assistant.',
       );
     }
 
@@ -87,53 +90,62 @@ export class AiService {
       data: { conversationId: conversation.id, role: 'user', content: userMessage },
     });
 
-    // Rebuild full history for context (conversation memory). Gemini uses
-    // 'model' instead of 'assistant' for the AI's turns.
     const priorHistory = await this.prisma.aiMessage.findMany({
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
-    // Exclude the user message we just inserted - it gets sent separately below.
-    const history = priorHistory.slice(0, -1).map((m: { role: string; content: string }) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
 
-    const model = this.client.getGenerativeModel({
-      model: MODEL_NAME,
-      systemInstruction: SYSTEM_PROMPT,
-      tools: [{ functionDeclarations: toGeminiFunctionDeclarations(CRM_TOOLS) }],
-    });
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...priorHistory.map((m: { role: string; content: string }) => ({
+        role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+        content: m.content,
+      })),
+    ];
 
-    const chat = model.startChat({ history });
-
+    const tools = toOpenAiTools(CRM_TOOLS);
     let finalText = '';
     const executedToolCalls: Array<{ name: string; input: unknown; output: unknown }> = [];
-    let nextMessage: string | Part[] = userMessage;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const result = await chat.sendMessage(nextMessage);
-      const response = result.response;
-      const calls = response.functionCalls();
+      const completion = await this.client.chat.completions.create({
+        model: MODEL_NAME,
+        messages,
+        tools,
+      });
 
-      finalText = response.text();
+      const choice = completion.choices[0].message;
+      messages.push(choice);
 
-      if (!calls || calls.length === 0) break;
+      if (!choice.tool_calls || choice.tool_calls.length === 0) {
+        finalText = choice.content ?? '';
+        break;
+      }
 
-      const functionResponseParts: Part[] = [];
-      for (const call of calls) {
+      for (const call of choice.tool_calls) {
+        if (call.type !== 'function') continue;
+
+        let args: unknown = {};
+        try {
+          args = JSON.parse(call.function.arguments || '{}');
+        } catch {
+          args = {};
+        }
+
         let output: unknown;
         try {
-          output = await this.toolExecutor.execute(call.name, call.args, organizationId, userId);
+          output = await this.toolExecutor.execute(call.function.name, args, organizationId, userId);
         } catch (err) {
           output = { error: err instanceof Error ? err.message : 'Tool execution failed' };
         }
-        executedToolCalls.push({ name: call.name, input: call.args, output });
-        functionResponseParts.push({
-          functionResponse: { name: call.name, response: { result: output } },
+        executedToolCalls.push({ name: call.function.name, input: args, output });
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify(output),
         });
       }
-      nextMessage = functionResponseParts;
     }
 
     await this.prisma.aiMessage.create({
@@ -171,7 +183,7 @@ export class AiService {
 
   /**
    * Canned-response path — used only if USE_CANNED_RESPONSES is manually
-   * flipped to true (e.g. GEMINI_API_KEY isn't set up yet). Still
+   * flipped to true (e.g. GROQ_API_KEY isn't set up yet). Still
    * creates/persists the conversation and messages exactly like the real
    * path, so the UI and history work identically either way.
    */
