@@ -12,7 +12,7 @@ const USE_CANNED_RESPONSES = false;
 
 // Gemini 2.0 Flash - free tier on Google AI Studio, supports function
 // calling, good latency/quality tradeoff for a CRM assistant.
-const MODEL_NAME = 'gemini-2.0-flash';
+const MODEL_NAME = 'gemini-1.5-flash';
 
 const SYSTEM_PROMPT = `You are the AITELLION AI Assistant, built by Team StackVolt.
 You help small and medium businesses run their operations — starting with their CRM.
