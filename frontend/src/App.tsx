@@ -19,7 +19,6 @@ import ExpensesPage from './pages/finance/ExpensesPage';
 import PaymentsPage from './pages/finance/PaymentsPage';
 import ProductsPage from './pages/inventory/ProductsPage';
 import SuppliersPage from './pages/inventory/SuppliersPage';
-import AssistantPage from './pages/dashboard/AssistantPage';
 import SettingsPage from "./pages/dashboard/SettingsPage";
 
 export default function App() {
@@ -53,7 +52,6 @@ export default function App() {
           <Route path="payments" element={<PaymentsPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="suppliers" element={<SuppliersPage />} />
-          <Route path="assistant" element={<AssistantPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

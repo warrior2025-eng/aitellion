@@ -6,7 +6,6 @@ import {
   Users,
   Target,
   Handshake,
-  Sparkles,
   Settings,
   LogOut,
   Menu,
@@ -22,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { NotificationBell } from '../components/NotificationBell';
+import { AiChatWidget } from '../components/AiChatWidget';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 
@@ -33,7 +33,7 @@ interface NavItem {
   module: 'CRM' | 'HR' | 'FINANCE' | 'INVENTORY' | null;
 }
 
-// module: null -> always visible (Dashboard, AI Assistant)
+// module: null -> always visible (Dashboard)
 const NAV_ITEMS: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true, module: null },
   { to: '/app/customers', label: 'Customers', icon: Users, module: 'CRM' },
@@ -47,7 +47,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/app/payments', label: 'Payments', icon: Wallet, module: 'FINANCE' },
   { to: '/app/products', label: 'Products', icon: Package, module: 'INVENTORY' },
   { to: '/app/suppliers', label: 'Suppliers', icon: Truck, module: 'INVENTORY' },
-  { to: '/app/assistant', label: 'AI Assistant', icon: Sparkles, module: null },
 ];
 
 export function AppLayout() {
@@ -173,6 +172,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      <AiChatWidget />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 import { CustomersService } from '../../crm/customers/customers.service';
 import { LeadsService } from '../../crm/leads/leads.service';
 import { DealsService } from '../../crm/deals/deals.service';
@@ -8,11 +7,22 @@ import { NotesService } from '../../crm/notes/notes.service';
 import { ActivitiesService } from '../../crm/activities/activities.service';
 
 /**
- * The tool schema exposed to Claude. Every tool here maps 1:1 to a real
- * CRM service call — there is no mocked/faked execution path. All calls are
- * automatically scoped to the caller's organization and cannot cross tenants.
+ * Provider-agnostic tool schema (works for Gemini, or any future LLM
+ * provider). Every tool here maps 1:1 to a real CRM service call — there is
+ * no mocked/faked execution path. All calls are automatically scoped to the
+ * caller's organization and cannot cross tenants.
  */
-export const CRM_TOOLS: Anthropic.Tool[] = [
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, { type: string; description?: string }>;
+    required?: string[];
+  };
+}
+
+export const CRM_TOOLS: ToolDefinition[] = [
   {
     name: 'search_customers',
     description: 'Search customers by name, company, or email. Returns up to 10 matches.',

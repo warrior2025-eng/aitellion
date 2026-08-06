@@ -1,13 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { PrismaService } from '../prisma/prisma.service';
 import { CRM_TOOLS, CrmToolExecutor } from './tools/crm-tools';
+import { toGeminiFunctionDeclarations } from './gemini-tools';
 import { getCannedReply } from './canned-responses';
 
-// TEMPORARY SWITCH: set to false once ready to use the real Anthropic API
-// (make sure ANTHROPIC_API_KEY is set in .env / Railway variables first).
-const USE_CANNED_RESPONSES = true;
+// TEMPORARY SWITCH: flip to true if GEMINI_API_KEY isn't configured yet and
+// you still want the assistant to respond with basic data-driven answers.
+const USE_CANNED_RESPONSES = false;
+
+// Gemini 2.0 Flash - free tier on Google AI Studio, supports function
+// calling, good latency/quality tradeoff for a CRM assistant.
+const MODEL_NAME = 'gemini-2.0-flash';
 
 const SYSTEM_PROMPT = `You are the AITELLION AI Assistant, built by Team StackVolt.
 You help small and medium businesses run their operations — starting with their CRM.
@@ -27,15 +32,17 @@ const MAX_TOOL_ITERATIONS = 6;
 
 @Injectable()
 export class AiService {
-  private client: Anthropic;
+  private client: GoogleGenerativeAI | null = null;
 
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
     private toolExecutor: CrmToolExecutor,
   ) {
-    const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
-    this.client = new Anthropic({ apiKey: apiKey || undefined });
+    const apiKey = this.config.get<string>('GEMINI_API_KEY');
+    if (apiKey) {
+      this.client = new GoogleGenerativeAI(apiKey);
+    }
   }
 
   async listConversations(organizationId: string, userId: string) {
@@ -59,9 +66,9 @@ export class AiService {
       return this.chatCanned(organizationId, userId, conversationId, userMessage);
     }
 
-    if (!this.config.get<string>('ANTHROPIC_API_KEY')) {
+    if (!this.client) {
       throw new BadRequestException(
-        'ANTHROPIC_API_KEY is not configured on this deployment. Set it in the backend .env to enable the AI Assistant.',
+        'GEMINI_API_KEY is not configured on this deployment. Set it in the backend .env to enable the AI Assistant.',
       );
     }
 
@@ -80,60 +87,53 @@ export class AiService {
       data: { conversationId: conversation.id, role: 'user', content: userMessage },
     });
 
-    // Rebuild full history for context (conversation memory).
-    const history = await this.prisma.aiMessage.findMany({
+    // Rebuild full history for context (conversation memory). Gemini uses
+    // 'model' instead of 'assistant' for the AI's turns.
+    const priorHistory = await this.prisma.aiMessage.findMany({
       where: { conversationId: conversation.id },
       orderBy: { createdAt: 'asc' },
     });
-
-    const messages: Anthropic.MessageParam[] = history.map((m: { role: string; content: string }) => ({
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: m.content,
+    // Exclude the user message we just inserted - it gets sent separately below.
+    const history = priorHistory.slice(0, -1).map((m: { role: string; content: string }) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
     }));
+
+    const model = this.client.getGenerativeModel({
+      model: MODEL_NAME,
+      systemInstruction: SYSTEM_PROMPT,
+      tools: [{ functionDeclarations: toGeminiFunctionDeclarations(CRM_TOOLS) }],
+    });
+
+    const chat = model.startChat({ history });
 
     let finalText = '';
     const executedToolCalls: Array<{ name: string; input: unknown; output: unknown }> = [];
+    let nextMessage: string | Part[] = userMessage;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        system: SYSTEM_PROMPT,
-        tools: CRM_TOOLS,
-        messages,
-      });
+      const result = await chat.sendMessage(nextMessage);
+      const response = result.response;
+      const calls = response.functionCalls();
 
-      const toolUseBlocks = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
-      );
-      const textBlocks = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text');
-      finalText = textBlocks.map((b) => b.text).join('\n');
+      finalText = response.text();
 
-      if (response.stop_reason !== 'tool_use' || toolUseBlocks.length === 0) {
-        break;
-      }
+      if (!calls || calls.length === 0) break;
 
-      messages.push({ role: 'assistant', content: response.content });
-
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const toolUse of toolUseBlocks) {
+      const functionResponseParts: Part[] = [];
+      for (const call of calls) {
         let output: unknown;
-        let isError = false;
         try {
-          output = await this.toolExecutor.execute(toolUse.name, toolUse.input, organizationId, userId);
+          output = await this.toolExecutor.execute(call.name, call.args, organizationId, userId);
         } catch (err) {
           output = { error: err instanceof Error ? err.message : 'Tool execution failed' };
-          isError = true;
         }
-        executedToolCalls.push({ name: toolUse.name, input: toolUse.input, output });
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: JSON.stringify(output),
-          is_error: isError,
+        executedToolCalls.push({ name: call.name, input: call.args, output });
+        functionResponseParts.push({
+          functionResponse: { name: call.name, response: { result: output } },
         });
       }
-      messages.push({ role: 'user', content: toolResults });
+      nextMessage = functionResponseParts;
     }
 
     await this.prisma.aiMessage.create({
@@ -170,9 +170,10 @@ export class AiService {
   }
 
   /**
-   * Canned-response path — used while USE_CANNED_RESPONSES is true.
-   * Still creates/persists the conversation and messages exactly like the
-   * real path, so the UI and history work identically either way.
+   * Canned-response path — used only if USE_CANNED_RESPONSES is manually
+   * flipped to true (e.g. GEMINI_API_KEY isn't set up yet). Still
+   * creates/persists the conversation and messages exactly like the real
+   * path, so the UI and history work identically either way.
    */
   private async chatCanned(
     organizationId: string,
