@@ -10,12 +10,13 @@ interface ChatMessage {
   toolCalls?: Array<{ name: string; input: unknown; output: unknown }>;
 }
 
-const SUGGESTIONS = [
+const CRM_SUGGESTIONS = [
   'How many customers do I have?',
   'How many leads do I have?',
   "What's my pipeline value?",
-  'What can you do?',
 ];
+
+const GENERIC_SUGGESTIONS = ['What can you do?', 'Help'];
 
 // Voice input uses the browser's built-in Web Speech API (Chrome/Edge only —
 // there's no server component, so nothing to configure).
@@ -24,7 +25,13 @@ const SpeechRecognitionCtor: any =
     ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) ||
   null;
 
-export function AiChatWidget() {
+export function AiChatWidget({ enabledModules = [] }: { enabledModules?: string[] }) {
+  const hasCrm = enabledModules.includes('CRM');
+  const suggestions = hasCrm ? [...CRM_SUGGESTIONS, 'What can you do?'] : GENERIC_SUGGESTIONS;
+  const emptyStateCopy = hasCrm
+    ? 'Ask AITELLION anything about your business'
+    : "This workspace hasn't enabled a department the assistant can act on yet — ask an owner to enable one in Settings.";
+
   const [open, setOpen] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [input, setInput] = useState('');
@@ -122,10 +129,9 @@ export function AiChatWidget() {
             {messages.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <Sparkles className="text-volt-soft" size={24} />
-                <p className="mt-2 text-sm font-medium text-text">Ask AITELLION anything about your business</p>
+                <p className="mt-2 text-sm font-medium text-text">{emptyStateCopy}</p>
                 <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                  {SUGGESTIONS.map((s) => (
-                    <button
+                  {suggestions.map((s) => (                    <button
                       key={s}
                       onClick={() => send(s)}
                       className="rounded-full border border-border px-2.5 py-1 text-[11px] text-text-muted hover:border-volt hover:text-volt-soft"

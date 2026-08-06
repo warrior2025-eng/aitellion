@@ -17,10 +17,8 @@ const USE_CANNED_RESPONSES = false;
 const MODEL_NAME = 'llama-3.3-70b-versatile';
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 
-const SYSTEM_PROMPT = `You are the AITELLION AI Assistant, built by Team StackVolt.
-You help small and medium businesses run their operations — starting with their CRM.
-You can look up and create customers, leads, and deals; move deals through the pipeline;
-create tasks and notes; and summarize account activity, using the tools available to you.
+const BASE_SYSTEM_PROMPT = `You are the AITELLION AI Assistant, built by Team StackVolt.
+You help small and medium businesses run their operations from inside AITELLION.
 
 Rules:
 - Always use tools to look up or change real data — never invent customer names, deal values, or IDs.
@@ -30,6 +28,38 @@ Rules:
 - Amounts are stored in cents; convert to a normal currency figure when talking to the user.
 - If a request is ambiguous (e.g. which customer named "Sam"), ask a clarifying question instead of guessing.
 - When asked to summarize a customer/account, call save_customer_summary after producing the summary so it persists on their profile.`;
+
+const MODULE_LABELS: Record<string, string> = {
+  CRM: 'CRM (customers, leads, deals)',
+  HR: 'HR (employees, attendance, leaves)',
+  FINANCE: 'Finance (invoices, expenses, payments)',
+  INVENTORY: 'Inventory (products, suppliers)',
+};
+
+/**
+ * Builds a system prompt scoped to what this specific organization actually
+ * has enabled, and lists the tools available to it. This is a belt-and-
+ * suspenders layer — the real enforcement is that we only ever pass the
+ * matching module's tools to the model (see chat() below), so it cannot
+ * call a disabled module's tool even if it tried.
+ */
+function buildSystemPrompt(enabledModules: string[]): string {
+  const enabledLabels = enabledModules.map((m) => MODULE_LABELS[m]).filter(Boolean);
+  const disabledModules = Object.keys(MODULE_LABELS).filter((m) => !enabledModules.includes(m));
+  const disabledLabels = disabledModules.map((m) => MODULE_LABELS[m]);
+
+  const scopeNote =
+    enabledLabels.length > 0
+      ? `This workspace has these departments enabled: ${enabledLabels.join(', ')}. Only help with tasks and data for these — you have no tools for anything else.`
+      : `This workspace has not enabled any department with AI tooling yet. You cannot look up or change any business data right now — say so plainly if asked.`;
+
+  const outOfScopeNote =
+    disabledLabels.length > 0
+      ? `If the user asks about ${disabledLabels.join(', ')}, tell them that department isn't enabled for their workspace (an owner can enable it during setup) instead of guessing or making up an answer.`
+      : '';
+
+  return [BASE_SYSTEM_PROMPT, scopeNote, outOfScopeNote].filter(Boolean).join('\n\n');
+}
 
 const MAX_TOOL_ITERATIONS = 6;
 
@@ -74,7 +104,17 @@ export class AiService {
         'GROQ_API_KEY is not configured on this deployment. Set it in the backend .env to enable the AI Assistant.',
       );
     }
+    
+    const organization = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { enabledModules: true },
+    });
+    const enabledModules: string[] = organization.enabledModules;
 
+    // The actual enforcement: the model physically cannot call a tool that
+    // isn't in this array, regardless of what the system prompt says or
+    // what the user asks for.
+    const allowedTools = CRM_TOOLS.filter((tool) => enabledModules.includes(tool.module));
     const conversation = conversationId
       ? await this.getConversation(organizationId, userId, conversationId)
       : await this.prisma.aiConversation.create({
@@ -96,14 +136,14 @@ export class AiService {
     });
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: buildSystemPrompt(enabledModules) },
       ...priorHistory.map((m: { role: string; content: string }) => ({
         role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
         content: m.content,
       })),
     ];
 
-    const tools = toOpenAiTools(CRM_TOOLS);
+    const tools = allowedTools.length > 0 ? toOpenAiTools(allowedTools) : undefined;
     let finalText = '';
     const executedToolCalls: Array<{ name: string; input: unknown; output: unknown }> = [];
 
@@ -111,7 +151,7 @@ export class AiService {
       const completion = await this.client.chat.completions.create({
         model: MODEL_NAME,
         messages,
-        tools,
+        ...(tools ? { tools } : {}),
       });
 
       const choice = completion.choices[0].message;

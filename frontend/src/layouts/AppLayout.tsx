@@ -173,7 +173,7 @@ export function AppLayout() {
         </main>
       </div>
 
-      <AiChatWidget />
+      <AiChatWidget enabledModules={enabledModules} />
     </div>
   );
 }

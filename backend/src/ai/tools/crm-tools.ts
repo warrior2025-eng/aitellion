@@ -15,6 +15,9 @@ import { ActivitiesService } from '../../crm/activities/activities.service';
 export interface ToolDefinition {
   name: string;
   description: string;
+  /** Which workspace module this tool belongs to - gates it out for orgs
+   *  that haven't enabled that department (see ai.service.ts). */
+  module: 'CRM' | 'HR' | 'FINANCE' | 'INVENTORY';
   input_schema: {
     type: 'object';
     properties: Record<string, { type: string; description?: string }>;
@@ -25,6 +28,7 @@ export interface ToolDefinition {
 export const CRM_TOOLS: ToolDefinition[] = [
   {
     name: 'search_customers',
+    module: 'CRM',
     description: 'Search customers by name, company, or email. Returns up to 10 matches.',
     input_schema: {
       type: 'object',
@@ -34,6 +38,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'get_customer',
+    module: 'CRM',
     description: 'Fetch full detail for one customer by id, including recent deals, notes, tasks and activity.',
     input_schema: {
       type: 'object',
@@ -43,6 +48,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'create_customer',
+    module: 'CRM',
     description: 'Create a new customer record.',
     input_schema: {
       type: 'object',
@@ -57,6 +63,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'create_lead',
+    module: 'CRM',
     description: 'Create a new sales lead.',
     input_schema: {
       type: 'object',
@@ -72,6 +79,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'list_leads',
+    module: 'CRM',
     description: 'List leads, optionally filtered by status (NEW, CONTACTED, QUALIFIED, UNQUALIFIED, CONVERTED).',
     input_schema: {
       type: 'object',
@@ -80,6 +88,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'convert_lead_to_customer',
+    module: 'CRM',
     description: 'Convert a qualified lead into a full customer record.',
     input_schema: {
       type: 'object',
@@ -89,6 +98,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'create_deal',
+    module: 'CRM',
     description: 'Create a new deal/opportunity, optionally linked to a customer.',
     input_schema: {
       type: 'object',
@@ -103,6 +113,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'update_deal_stage',
+    module: 'CRM',
     description: 'Move a deal to a new pipeline stage (PROSPECTING, QUALIFICATION, PROPOSAL, NEGOTIATION, WON, LOST).',
     input_schema: {
       type: 'object',
@@ -115,11 +126,13 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'list_deals_board',
+    module: 'CRM',
     description: 'Get every open deal grouped by pipeline stage — useful for pipeline overviews and forecasting questions.',
     input_schema: { type: 'object', properties: {} },
   },
   {
     name: 'create_task',
+    module: 'CRM',
     description: 'Create a follow-up task, optionally linked to a customer or deal and assigned to a due date.',
     input_schema: {
       type: 'object',
@@ -135,6 +148,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'add_note',
+    module: 'CRM',
     description: 'Attach a note to a customer or deal.',
     input_schema: {
       type: 'object',
@@ -148,6 +162,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'get_recent_activity',
+    module: 'CRM',
     description: 'Get the most recent CRM activity feed (created/updated customers, leads, deals, stage changes).',
     input_schema: {
       type: 'object',
@@ -156,6 +171,7 @@ export const CRM_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'save_customer_summary',
+    module: 'CRM',
     description:
       'Persist a short AI-generated account summary onto a customer record so it shows on their profile. Call this after producing a summary of a customer, if the user asked for one.',
     input_schema: {
