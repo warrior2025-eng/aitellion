@@ -65,8 +65,9 @@ export class EmailService implements OnModuleInit {
 
     this.transporter = nodemailer.createTransport({
       host,
-      port: 465,
-      secure: true,
+      port: 587,
+      secure: false,
+      requireTLS: true,
       // Required for TLS certificate validation since we're connecting by
       // IP - Gmail's cert is issued for the hostname, not the IP.
       tls: { servername: 'smtp.gmail.com' },
