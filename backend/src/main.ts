@@ -1,8 +1,15 @@
 import { NestFactory } from '@nestjs/core';
+import * as dns from 'node:dns';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+
+// Node resolves AAAA (IPv6) records before A (IPv4) by default. Railway's
+// containers don't have an outbound IPv6 route, so connecting to services
+// like Gmail SMTP (which has both record types) fails with ENETUNREACH
+// unless we explicitly prefer IPv4 here.
+dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
