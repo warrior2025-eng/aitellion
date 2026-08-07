@@ -1,27 +1,77 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 
 export interface EmailPayload {
   to: string;
   subject: string;
   html: string;
+  replyTo?: string;
 }
 
+const ROLE_DEPARTMENT_LABEL: Record<string, string> = {
+  OWNER: 'Leadership',
+  ADMIN: 'Admin',
+  MANAGER: 'Management',
+  HR: 'HR',
+  FINANCE: 'Finance',
+  SALES: 'Sales',
+  EMPLOYEE: 'Team',
+  VIEWER: 'Team',
+};
+
 /**
- * Outbound transactional email.
+ * Outbound transactional email via Gmail SMTP (nodemailer). Gmail works
+ * without owning a custom domain - the only realistic zero-cost option for
+ * a project on vercel.app/railway.app subdomains, since providers like
+ * Resend/SendGrid require a verified sending domain to mail arbitrary
+ * recipients on their free tiers.
  *
- * In production, swap the `send()` body for a real provider (AWS SES,
- * SendGrid, Postmark, Resend, ...) — the call sites (auth.service.ts) never
- * need to change, they only depend on this interface. Kept provider-less
- * here since delivery requires the customer's own sending domain/API keys.
+ * Setup: a Gmail account with 2-Step Verification on, then an "App
+ * Password" (Google Account -> Security -> App Passwords) - NOT the normal
+ * Gmail password. Set SMTP_USER / SMTP_PASS in the backend .env.
+ *
+ * If those aren't configured, emails are logged instead of sent so local
+ * dev / signup never breaks.
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter | null = null;
+
+  constructor(private config: ConfigService) {
+    const user = this.config.get<string>('SMTP_USER');
+    const pass = this.config.get<string>('SMTP_PASS');
+    if (user && pass) {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass },
+      });
+    }
+  }
 
   async send(payload: EmailPayload): Promise<void> {
-    // TODO(deploy): wire to SES/SendGrid/Postmark using env credentials.
-    this.logger.log(`[email] to=${payload.to} subject="${payload.subject}"`);
-    this.logger.debug(payload.html);
+    if (!this.transporter) {
+      this.logger.warn(
+        `SMTP_USER/SMTP_PASS not configured - email NOT sent (to=${payload.to}, subject="${payload.subject}")`,
+      );
+      this.logger.debug(payload.html);
+      return;
+    }
+
+    const fromAddress = this.config.get<string>('SMTP_USER');
+    try {
+      await this.transporter.sendMail({
+        from: `"AITELLION" <${fromAddress}>`,
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+        replyTo: payload.replyTo,
+      });
+      this.logger.log(`Email sent to=${payload.to} subject="${payload.subject}"`);
+    } catch (err) {
+      this.logger.error(`Failed to send email to=${payload.to}`, err instanceof Error ? err.stack : err);
+    }
   }
 
   async sendVerificationEmail(to: string, token: string, frontendUrl: string) {
@@ -29,8 +79,13 @@ export class EmailService {
     await this.send({
       to,
       subject: 'Verify your AITELLION account',
-      html: `<p>Welcome to AITELLION. Confirm your email to activate your account:</p>
-             <p><a href="${link}">${link}</a></p>`,
+      html: baseTemplate(`
+        <h1 style="margin:0 0 12px;font-size:20px;color:#0b0b12;">Confirm your email</h1>
+        <p style="margin:0 0 20px;color:#4b4b57;font-size:14px;line-height:1.6;">
+          Welcome to AITELLION. Click below to verify your email and activate your account.
+        </p>
+        ${button('Verify email', link)}
+      `),
     });
   }
 
@@ -39,18 +94,93 @@ export class EmailService {
     await this.send({
       to,
       subject: 'Reset your AITELLION password',
-      html: `<p>Reset your password using the link below (expires in 1 hour):</p>
-             <p><a href="${link}">${link}</a></p>`,
+      html: baseTemplate(`
+        <h1 style="margin:0 0 12px;font-size:20px;color:#0b0b12;">Reset your password</h1>
+        <p style="margin:0 0 20px;color:#4b4b57;font-size:14px;line-height:1.6;">
+          Use the button below to set a new password. This link expires in 1 hour.
+          If you didn't request this, you can safely ignore this email.
+        </p>
+        ${button('Reset password', link)}
+      `),
     });
   }
 
-  async sendInviteEmail(to: string, orgName: string, token: string, frontendUrl: string) {
+  async sendInviteEmail(
+    to: string,
+    orgName: string,
+    token: string,
+    frontendUrl: string,
+    inviter: { fullName: string; email: string },
+    role: string,
+  ) {
     const link = `${frontendUrl}/accept-invite?token=${token}`;
+    const department = ROLE_DEPARTMENT_LABEL[role] ?? 'Team';
+
     await this.send({
       to,
-      subject: `You've been invited to join ${orgName} on AITELLION`,
-      html: `<p>You've been invited to join <b>${orgName}</b> on AITELLION.</p>
-             <p><a href="${link}">${link}</a></p>`,
+      replyTo: inviter.email,
+      subject: `${inviter.fullName} invited you to join the ${department} team at ${orgName}`,
+      html: baseTemplate(`
+        <p style="margin:0 0 4px;color:#7a5cff;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">
+          ${department} Team &middot; ${orgName}
+        </p>
+        <h1 style="margin:0 0 12px;font-size:22px;color:#0b0b12;">You're invited to join ${orgName}</h1>
+        <p style="margin:0 0 16px;color:#4b4b57;font-size:14px;line-height:1.7;">
+          Hi there,<br /><br />
+          <b>${inviter.fullName}</b> has invited you to join the <b>${department} team</b> at
+          <b>${orgName}</b> on AITELLION — the AI operating system that runs their CRM, HR, finance
+          and inventory from one workspace.
+        </p>
+        <p style="margin:0 0 24px;color:#4b4b57;font-size:14px;line-height:1.7;">
+          Accept the invite below to create your account and get straight to work.
+        </p>
+        ${button('Accept invitation', link)}
+        <p style="margin:24px 0 0;color:#8a8a96;font-size:12px;line-height:1.6;">
+          This invite expires in 7 days. Have a question for ${inviter.fullName} before you join?
+          Just reply to this email — it'll go straight to them.
+        </p>
+      `),
     });
   }
+}
+
+function button(label: string, href: string): string {
+  return `
+    <a href="${href}"
+       style="display:inline-block;background:#7a5cff;color:#ffffff;text-decoration:none;
+              font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;">
+      ${label}
+    </a>
+    <p style="margin:16px 0 0;color:#8a8a96;font-size:12px;word-break:break-all;">
+      Or paste this link into your browser: ${href}
+    </p>
+  `;
+}
+
+function baseTemplate(innerHtml: string): string {
+  return `
+  <div style="background:#f4f4f7;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:28px 32px 0;">
+          <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em;color:#0b0b12;">
+            &#9650; AITELLION
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 32px 32px;">
+          ${innerHtml}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 32px;background:#faf9ff;border-top:1px solid #eeeef4;">
+          <p style="margin:0;color:#a3a3ad;font-size:11px;">
+            Built with love by Team StackVolt &middot; AITELLION
+          </p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
 }

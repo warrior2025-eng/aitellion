@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { NotificationBell } from '../components/NotificationBell';
+import { InvitesPanel } from '../components/InvitesPanel';
 import { AiChatWidget } from '../components/AiChatWidget';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -158,6 +159,7 @@ export function AppLayout() {
           </button>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2 sm:gap-3">
+            {(user?.role === 'OWNER' || user?.role === 'ADMIN') && <InvitesPanel />}
             <NotificationBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-text">{user?.fullName}</p>

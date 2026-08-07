@@ -29,6 +29,10 @@ export class OrganizationsService {
 
   async inviteMember(organizationId: string, invitedById: string, dto: InviteMemberDto) {
     const org = await this.getProfile(organizationId);
+    const inviter = await this.prisma.user.findUniqueOrThrow({
+      where: { id: invitedById },
+      select: { fullName: true, email: true },
+    });
 
     const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingUser) {
@@ -55,6 +59,8 @@ export class OrganizationsService {
       org.name,
       token,
       this.config.get<string>('FRONTEND_URL', 'http://localhost:5173'),
+      inviter,
+      dto.role,
     );
     return invite;
   }

@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { Card, PageHeader, Badge } from '../../components/patterns';
 import { Field, Button } from '../../components/ui';
-
-const ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'HR', 'FINANCE', 'SALES', 'EMPLOYEE', 'VIEWER'];
+import { useAuth } from '../../context/AuthContext';
 
 export default function SettingsPage() {
-  const queryClient = useQueryClient();
-  const [invite, setInvite] = useState({ email: '', role: 'EMPLOYEE' });
+  const { user, refreshUser } = useAuth();
+  const [fullName, setFullName] = useState('');
 
   const { data: org } = useQuery({
     queryKey: ['organization'],
@@ -21,17 +19,45 @@ export default function SettingsPage() {
     queryFn: async () => (await api.get('/organizations/current/members')).data,
   });
 
-  const inviteMutation = useMutation({
-    mutationFn: () => api.post('/organizations/current/invitations', invite),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      setInvite({ email: '', role: 'EMPLOYEE' });
-    },
+  useEffect(() => {
+    if (user?.fullName) setFullName(user.fullName);
+  }, [user?.fullName]);
+
+  const profileMutation = useMutation({
+    mutationFn: () => api.patch('/users/me', { fullName }),
+    onSuccess: () => refreshUser(),
   });
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Settings" description="Manage your organization and team." />
+      <PageHeader title="Settings" description="Manage your profile and organization." />
+
+      <Card className="mb-6">
+        <h2 className="font-display text-base font-semibold text-text">Profile</h2>
+        <form
+          className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            profileMutation.mutate();
+          }}
+        >
+          <Field
+            label="Full name"
+            required
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="flex-1"
+          />
+          <Field label="Email" value={user?.email ?? ''} disabled className="flex-1" />
+          <Button type="submit" disabled={profileMutation.isPending || !fullName.trim()}>
+            Save
+          </Button>
+        </form>
+        {profileMutation.isSuccess && <p className="mt-2 text-xs text-emerald-400">Profile updated.</p>}
+        <p className="mt-3 text-xs text-text-faint">
+          To change your password, sign out and use "Forgot password" from the sign-in page.
+        </p>
+      </Card>
 
       <Card className="mb-6">
         <h2 className="font-display text-base font-semibold text-text">Organization</h2>
@@ -50,36 +76,12 @@ export default function SettingsPage() {
       <Card>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-semibold text-text">Team members</h2>
+          {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
+            <p className="text-xs text-text-faint">Use the invite icon in the header to add teammates.</p>
+          )}
         </div>
 
-        <form
-          className="mt-4 flex items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            inviteMutation.mutate();
-          }}
-        >
-          <Field label="Invite by email" type="email" required value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} className="flex-1" />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-muted">Role</label>
-            <select
-              value={invite.role}
-              onChange={(e) => setInvite({ ...invite, role: e.target.value })}
-              className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-text outline-none"
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" disabled={inviteMutation.isPending}>
-            <UserPlus size={16} /> Invite
-          </Button>
-        </form>
-
-        <div className="mt-6 space-y-2">
+        <div className="mt-4 space-y-2">
           {members?.map((m: any) => (
             <div key={m.id} className="flex items-center justify-between border-b border-border py-2 last:border-0">
               <div>

@@ -114,7 +114,7 @@ export function AiChatWidget({ enabledModules = [] }: { enabledModules?: string[
               <div>
                 <p className="font-display text-sm font-semibold text-text">AITELLION Assistant</p>
                 <p className="text-[11px] text-text-faint">Ask it to look things up or take action</p>
-              </div>
+              </div>    
             </div>
             <button
               onClick={() => setOpen(false)}
