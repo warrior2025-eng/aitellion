@@ -44,19 +44,38 @@ export class EmailService {
     const pass = this.config.get<string>('SMTP_PASS');
     if (user && pass) {
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: { user, pass },
+        // Fail fast instead of hanging for a long time on a bad network/
+        // credential - without these, a stuck connection can silently
+        // block the invite request for a minute or more.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 10_000,
       });
+
+      // Verify the SMTP credentials once at startup so a bad App Password
+      // shows up clearly in the logs immediately, not only when someone
+      // tries to send an invite.
+      this.transporter.verify((err) => {
+        if (err) this.logger.error('SMTP connection failed - check SMTP_USER/SMTP_PASS', err);
+        else this.logger.log('SMTP connection verified - ready to send email');
+      });
+    } else {
+      this.logger.warn('SMTP_USER/SMTP_PASS not set - emails will be logged instead of sent');
     }
   }
 
-  async send(payload: EmailPayload): Promise<void> {
+  /** Returns true if the email was actually handed off to Gmail successfully. */
+  async send(payload: EmailPayload): Promise<boolean> {
     if (!this.transporter) {
       this.logger.warn(
         `SMTP_USER/SMTP_PASS not configured - email NOT sent (to=${payload.to}, subject="${payload.subject}")`,
       );
       this.logger.debug(payload.html);
-      return;
+      return false;
     }
 
     const fromAddress = this.config.get<string>('SMTP_USER');
@@ -69,8 +88,10 @@ export class EmailService {
         replyTo: payload.replyTo,
       });
       this.logger.log(`Email sent to=${payload.to} subject="${payload.subject}"`);
+      return true;
     } catch (err) {
       this.logger.error(`Failed to send email to=${payload.to}`, err instanceof Error ? err.stack : err);
+      return false;
     }
   }
 
@@ -112,11 +133,11 @@ export class EmailService {
     frontendUrl: string,
     inviter: { fullName: string; email: string },
     role: string,
-  ) {
+  ): Promise<boolean> {
     const link = `${frontendUrl}/accept-invite?token=${token}`;
     const department = ROLE_DEPARTMENT_LABEL[role] ?? 'Team';
 
-    await this.send({
+    return this.send({
       to,
       replyTo: inviter.email,
       subject: `${inviter.fullName} invited you to join the ${department} team at ${orgName}`,

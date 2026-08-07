@@ -54,7 +54,7 @@ export class OrganizationsService {
       },
     });
 
-    await this.email.sendInviteEmail(
+    const emailSent = await this.email.sendInviteEmail(
       dto.email,
       org.name,
       token,
@@ -62,7 +62,7 @@ export class OrganizationsService {
       inviter,
       dto.role,
     );
-    return invite;
+    return { ...invite, emailSent };
   }
 
   async listInvitations(organizationId: string) {

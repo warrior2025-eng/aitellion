@@ -26,11 +26,14 @@ export function InvitesPanel() {
 
   const pendingCount = invitations?.filter((i: any) => i.status === 'PENDING').length ?? 0;
 
+  const [emailWarning, setEmailWarning] = useState(false);
+
   const inviteMutation = useMutation({
     mutationFn: () => api.post('/organizations/current/invitations', form),
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['invitations'] });
       setForm({ email: '', role: 'EMPLOYEE' });
+      setEmailWarning(res.data.emailSent === false);
     },
   });
 
@@ -64,7 +67,7 @@ export function InvitesPanel() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-96 rounded-xl border border-border bg-surface shadow-2xl">
+        <div className="fixed right-4 top-[72px] z-50 w-[calc(100vw-2rem)] max-w-96 rounded-xl border border-border bg-surface shadow-2xl sm:right-6">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="font-display text-sm font-semibold text-text">Invite teammates</p>
             <button
@@ -115,7 +118,14 @@ export function InvitesPanel() {
                 {(inviteMutation.error as any)?.response?.data?.message ?? 'Could not send this invite.'}
               </p>
             )}
-            {inviteMutation.isSuccess && <p className="text-xs text-emerald-400">Invite sent.</p>}
+            {inviteMutation.isSuccess && !emailWarning && (
+              <p className="text-xs text-emerald-400">Invite sent.</p>
+            )}
+            {inviteMutation.isSuccess && emailWarning && (
+              <p className="text-xs text-amber-400">
+                Invite created, but the email couldn't be sent — check the server's SMTP settings.
+              </p>
+            )}
           </form>
 
           <div className="max-h-72 overflow-y-auto">

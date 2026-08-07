@@ -30,9 +30,16 @@ const STATS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-ink text-text">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-ink/80 px-6 py-4 backdrop-blur sm:px-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Logo size="lg" showPulse={false} />
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-ink/80 px-4 py-3 backdrop-blur sm:px-8 sm:py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
+          <div className="min-w-0 shrink">
+            <div className="sm:hidden">
+              <Logo size="sm" showPulse={false} />
+            </div>
+            <div className="hidden sm:block">
+              <Logo size="lg" showPulse={false} />
+            </div>
+          </div>
           <nav className="hidden items-center gap-8 md:flex">
             {NAV_LINKS.map((link) => (
               <a key={link.href} href={link.href} className="text-sm font-medium text-text-muted hover:text-text">
@@ -40,12 +47,12 @@ export default function LandingPage() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-3">
-            <Link to="/login" className="text-sm font-medium text-text-muted hover:text-text">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <Link to="/login" className="text-xs font-medium text-text-muted hover:text-text sm:text-sm">
               Sign in
             </Link>
             <Link to="/signup">
-              <Button>Start free</Button>
+              <Button className="!px-3 !py-2 text-xs sm:!px-4 sm:!py-2.5 sm:text-sm">Start free</Button>
             </Link>
           </div>
         </div>
