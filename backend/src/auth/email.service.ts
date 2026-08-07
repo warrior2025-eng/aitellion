@@ -47,6 +47,7 @@ export class EmailService {
         host: 'smtp.gmail.com',
         port: 465,
         secure: true,
+        family: 4, // Railway's network can't reach Gmail's IPv6 address (ENETUNREACH) - force IPv4
         auth: { user, pass },
         // Fail fast instead of hanging for a long time on a bad network/
         // credential - without these, a stuck connection can silently
