@@ -1,5 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, setTokens, getAccessToken } from '../lib/api';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { api, setTokens, getAccessToken } from "../lib/api";
 
 export interface AuthUser {
   id: string;
@@ -14,7 +20,19 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (payload: { fullName: string; email: string; password: string; organizationName: string; country: string; designations: string[] }) => Promise<void>;
+  signup: (payload: {
+    fullName: string;
+    email: string;
+    password: string;
+    organizationName: string;
+    country: string;
+    designations: string[];
+  }) => Promise<void>;
+  acceptInvite: (payload: {
+    token: string;
+    fullName: string;
+    password: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -32,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const res = await api.get('/users/me');
+      const res = await api.get("/users/me");
       setUser(res.data);
     } catch {
       setUser(null);
@@ -47,21 +65,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
-    const res = await api.post('/auth/login', { email, password });
+    const res = await api.post("/auth/login", { email, password });
     setTokens(res.data.accessToken, res.data.refreshToken);
     await refreshUser();
   }
 
-  async function signup(payload: { fullName: string; email: string; password: string; organizationName: string; country: string; designations: string[] }) {
-    const res = await api.post('/auth/signup', payload);
+  async function signup(payload: {
+    fullName: string;
+    email: string;
+    password: string;
+    organizationName: string;
+    country: string;
+    designations: string[];
+  }) {
+    const res = await api.post("/auth/signup", payload);
+    setTokens(res.data.accessToken, res.data.refreshToken);
+    await refreshUser();
+  }
+
+  async function acceptInvite(payload: {
+    token: string;
+    fullName: string;
+    password: string;
+  }) {
+    const res = await api.post("/auth/accept-invite", payload);
     setTokens(res.data.accessToken, res.data.refreshToken);
     await refreshUser();
   }
 
   async function logout() {
-    const refreshToken = localStorage.getItem('aitellion_refresh_token');
+    const refreshToken = localStorage.getItem("aitellion_refresh_token");
     try {
-      if (refreshToken) await api.post('/auth/logout', { refreshToken });
+      if (refreshToken) await api.post("/auth/logout", { refreshToken });
     } catch {
       // best-effort
     }
@@ -70,7 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        signup,
+        acceptInvite,
+        logout,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -78,6 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }

@@ -69,7 +69,7 @@ export function InvitesPanel() {
       {open && (
         <div className="fixed right-4 top-[72px] z-50 w-[calc(100vw-2rem)] max-w-96 rounded-xl border border-border bg-surface shadow-2xl sm:right-6">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <p className="font-display text-sm font-semibold text-text">Invite teammates</p>
+            <p className="font-display text-sm font-semibold text-text">Bring your team aboard</p>
             <button
               onClick={() => setOpen(false)}
               className="flex h-6 w-6 items-center justify-center rounded-lg text-text-faint hover:bg-surface-2 hover:text-text"

@@ -9,15 +9,26 @@ export interface EmailPayload {
   replyTo?: string;
 }
 
-const ROLE_DEPARTMENT_LABEL: Record<string, string> = {
+/** Human-readable label for each role, shown as a badge in the invite email. */
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  MANAGER: 'Manager',
+  HR: 'HR',
+  FINANCE: 'Finance',
+  SALES: 'Sales',
+  EMPLOYEE: 'Employee',
+  VIEWER: 'Viewer',
+};
+
+/** Department phrasing for roles that map to a specific team (HR, Finance, Sales, etc). */
+const ROLE_DEPARTMENT: Record<string, string> = {
   OWNER: 'Leadership',
   ADMIN: 'Admin',
   MANAGER: 'Management',
   HR: 'HR',
   FINANCE: 'Finance',
   SALES: 'Sales',
-  EMPLOYEE: 'Team',
-  VIEWER: 'Team',
 };
 
 /**
@@ -124,22 +135,32 @@ export class EmailService {
     role: string,
   ): Promise<boolean> {
     const link = `${frontendUrl}/accept-invite?token=${token}`;
-    const department = ROLE_DEPARTMENT_LABEL[role] ?? 'Team';
+    const roleLabel = ROLE_LABEL[role] ?? role;
+    const department = ROLE_DEPARTMENT[role];
+
+    // "join the HR team at Acme" for department roles; "join Acme" plainly
+    // for EMPLOYEE/VIEWER, which have no specific department to name.
+    const destinationPhrase = department ? `the ${department} team at ${orgName}` : orgName;
 
     return this.send({
       to,
       replyTo: inviter.email,
-      subject: `${inviter.fullName} invited you to join the ${department} team at ${orgName}`,
+      subject: `${inviter.fullName} invited you to join ${destinationPhrase} on AITELLION`,
       html: baseTemplate(`
         <p style="margin:0 0 4px;color:#7a5cff;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">
-          ${department} Team &middot; ${orgName}
+          ${department ? `${department} Team &middot; ` : ''}${orgName}
         </p>
         <h1 style="margin:0 0 12px;font-size:22px;color:#0b0b12;">You're invited to join ${orgName}</h1>
         <p style="margin:0 0 16px;color:#4b4b57;font-size:14px;line-height:1.7;">
           Hi there,<br /><br />
-          <b>${inviter.fullName}</b> has invited you to join the <b>${department} team</b> at
-          <b>${orgName}</b> on AITELLION — the AI operating system that runs their CRM, HR, finance
-          and inventory from one workspace.
+          <b>${inviter.fullName}</b> has invited you to join ${destinationPhrase} on AITELLION — the
+          AI operating system that runs CRM, HR, finance and inventory from one workspace.
+        </p>
+        <p style="margin:0 0 24px;">
+          <span style="display:inline-block;background:#f1edff;color:#7a5cff;font-size:12px;font-weight:600;
+                       padding:4px 12px;border-radius:999px;">
+            Role: ${roleLabel}
+          </span>
         </p>
         <p style="margin:0 0 24px;color:#4b4b57;font-size:14px;line-height:1.7;">
           Accept the invite below to create your account and get straight to work.
