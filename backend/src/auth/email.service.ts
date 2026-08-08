@@ -1,7 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import * as dns from 'node:dns';
+import sgMail from '@sendgrid/mail';
 
 export interface EmailPayload {
   to: string;
@@ -22,96 +21,65 @@ const ROLE_DEPARTMENT_LABEL: Record<string, string> = {
 };
 
 /**
- * Outbound transactional email via Gmail SMTP (nodemailer). Gmail works
- * without owning a custom domain - the only realistic zero-cost option for
- * a project on vercel.app/railway.app subdomains, since providers like
- * Resend/SendGrid require a verified sending domain to mail arbitrary
- * recipients on their free tiers.
+ * Outbound transactional email via SendGrid's HTTP API.
  *
- * Setup: a Gmail account with 2-Step Verification on, then an "App
- * Password" (Google Account -> Security -> App Passwords) - NOT the normal
- * Gmail password. Set SMTP_USER / SMTP_PASS in the backend .env.
+ * We use an HTTP API instead of SMTP because Railway (like most PaaS
+ * providers on their free/hobby tiers) blocks outbound SMTP ports 465/587
+ * entirely to prevent spam abuse - Gmail SMTP will always time out there,
+ * no matter how the connection is configured. SendGrid sends over HTTPS
+ * (port 443), which is never blocked.
+ *
+ * Setup: create a free SendGrid account, verify a "Single Sender" (just one
+ * email address you own - no domain needed) under Settings -> Sender
+ * Authentication, create an API key under Settings -> API Keys, then set
+ * SENDGRID_API_KEY and SENDGRID_FROM_EMAIL (the verified sender address) in
+ * the backend .env.
  *
  * If those aren't configured, emails are logged instead of sent so local
  * dev / signup never breaks.
  */
 @Injectable()
-export class EmailService implements OnModuleInit {
+export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter | null = null;
+  private fromEmail: string | null = null;
 
-  constructor(private config: ConfigService) {}
-
-  async onModuleInit() {
-    const user = this.config.get<string>('SMTP_USER');
-    const pass = this.config.get<string>('SMTP_PASS');
-    if (!user || !pass) {
-      this.logger.warn('SMTP_USER/SMTP_PASS not set - emails will be logged instead of sent');
-      return;
+  constructor(private config: ConfigService) {
+    const apiKey = this.config.get<string>('SENDGRID_API_KEY');
+    const fromEmail = this.config.get<string>('SENDGRID_FROM_EMAIL');
+    if (apiKey && fromEmail) {
+      sgMail.setApiKey(apiKey);
+      this.fromEmail = fromEmail;
+      this.logger.log(`SendGrid configured - sending as ${fromEmail}`);
+    } else {
+      this.logger.warn('SENDGRID_API_KEY/SENDGRID_FROM_EMAIL not set - emails will be logged instead of sent');
     }
-
-    // Railway's containers report an IPv4 interface but outbound IPv6 to
-    // Gmail still gets attempted and fails with ENETUNREACH (nodemailer's
-    // own network-interface detection isn't reliable there). Resolving the
-    // A record ourselves and connecting to that literal IP sidesteps
-    // nodemailer's family-selection logic entirely.
-    let host = 'smtp.gmail.com';
-    try {
-      const addresses = await dns.promises.resolve4('smtp.gmail.com');
-      if (addresses[0]) host = addresses[0];
-    } catch (err) {
-      this.logger.warn('Could not resolve smtp.gmail.com to an IPv4 address, falling back to hostname', err);
-    }
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port: 587,
-      secure: false,
-      requireTLS: true,
-      // Required for TLS certificate validation since we're connecting by
-      // IP - Gmail's cert is issued for the hostname, not the IP.
-      tls: { servername: 'smtp.gmail.com' },
-      auth: { user, pass },
-      // Fail fast instead of hanging for a long time on a bad network/
-      // credential - without these, a stuck connection can silently
-      // block the invite request for a minute or more.
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 10_000,
-    });
-
-    // Verify the SMTP credentials once at startup so a bad App Password
-    // shows up clearly in the logs immediately, not only when someone
-    // tries to send an invite.
-    this.transporter.verify((err) => {
-      if (err) this.logger.error('SMTP connection failed - check SMTP_USER/SMTP_PASS', err);
-      else this.logger.log(`SMTP connection verified (via ${host}) - ready to send email`);
-    });
   }
 
-  /** Returns true if the email was actually handed off to Gmail successfully. */
+  /** Returns true if the email was actually handed off to SendGrid successfully. */
   async send(payload: EmailPayload): Promise<boolean> {
-    if (!this.transporter) {
+    if (!this.fromEmail) {
       this.logger.warn(
-        `SMTP_USER/SMTP_PASS not configured - email NOT sent (to=${payload.to}, subject="${payload.subject}")`,
+        `SendGrid not configured - email NOT sent (to=${payload.to}, subject="${payload.subject}")`,
       );
       this.logger.debug(payload.html);
       return false;
     }
 
-    const fromAddress = this.config.get<string>('SMTP_USER');
     try {
-      await this.transporter.sendMail({
-        from: `"AITELLION" <${fromAddress}>`,
+      await sgMail.send({
         to: payload.to,
+        from: { email: this.fromEmail, name: 'AITELLION' },
+        replyTo: payload.replyTo,
         subject: payload.subject,
         html: payload.html,
-        replyTo: payload.replyTo,
       });
       this.logger.log(`Email sent to=${payload.to} subject="${payload.subject}"`);
       return true;
-    } catch (err) {
-      this.logger.error(`Failed to send email to=${payload.to}`, err instanceof Error ? err.stack : err);
+    } catch (err: any) {
+      // SendGrid puts the useful detail (e.g. "sender not verified") in
+      // err.response.body, not the top-level error message.
+      const detail = err?.response?.body ?? err;
+      this.logger.error(`Failed to send email to=${payload.to}`, detail);
       return false;
     }
   }
